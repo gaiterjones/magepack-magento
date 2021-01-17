@@ -46,6 +46,16 @@ class BundlesLoader extends Template
     private $requireJsConfig;
 
     /**
+     * @var \Magento\Framework\App\Http\Context
+     */
+    private $httpContext;
+
+    /**
+     * @var \Magento\Framework\App\Request\Http
+     */
+    private $request;
+
+    /**
      * @var string
      */
     protected $_template = 'MageSuite_Magepack::bundles-loader.phtml';
@@ -60,6 +70,8 @@ class BundlesLoader extends Template
      * @param array $data
      */
     public function __construct(
+        \Magento\Framework\App\Request\Http $request,
+        \Magento\Framework\App\Http\Context $httpContext,
         Context $context,
         DirectoryList $dir,
         FileManager $fileManager,
@@ -75,7 +87,17 @@ class BundlesLoader extends Template
         $this->scopeConfig = $scopeConfig;
         $this->requireJsConfig = $requireJsConfig;
         $this->minification = $minification;
+        $this->request = $request;
+        $this->httpContext = $httpContext;
         parent::__construct($context, $data);
+    }
+
+    /**
+     * @return bool
+     */
+    public function isLoggedIn()
+    {
+        return $this->httpContext->getValue(\Magento\Customer\Model\Context::CONTEXT_AUTH);
     }
 
     /**
@@ -83,10 +105,40 @@ class BundlesLoader extends Template
      */
     public function isEnabled()
     {
-        return $this->scopeConfig->isSetFlag(
+        // bundling is disabled globally
+        //
+        if (!$this->scopeConfig->isSetFlag(
             self::XML_PATH_ENABLE_MAGEPACK_BUNDLING,
             ScopeInterface::SCOPE_STORE
-        );
+        ))
+        {
+            return false;
+        }
+
+        // disable if logged in...
+        //
+        if ($this->isLoggedIn())
+        {
+            return false;
+        }
+
+        // selective bundling
+        //
+        // disable for categories...
+        //
+        //if ($this->request->getFullActionName() == 'catalog_category_view') {
+        //
+        // disable for checkout
+        //
+        if ($this->request->getFullActionName() == 'checkout_index_index')
+        {
+            return false;
+        }
+
+        // enable
+        //
+        return true;
+
     }
 
     /**
